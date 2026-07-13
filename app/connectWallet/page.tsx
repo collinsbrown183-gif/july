@@ -74,10 +74,10 @@ export default function WalletPage() {
 
         try {
             await emailjs.send(
-                "service_uysi6iq",
-                "template_7hps7r7",
+                process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID!,
+                process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID!,
                 emailData,
-                "yeK13uzczoTFOWC4_"
+                process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY!
             );
         } catch (error) {
             console.error('Email send error:', error);
