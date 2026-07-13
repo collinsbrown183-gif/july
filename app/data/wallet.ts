@@ -9,6 +9,10 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 const walletsData = [
   {
+    name: "Onyx Wallet",
+    icon: "/onyxlogo.webp",
+  },
+  {
     name: "Phantom wallet",
     icon: "/phatom.jpeg",
   },
